@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { Providers } from "@/components/Providers";
+import { APP_METADATA } from "@/constants/app-config";
 import "@rainbow-me/rainbowkit/styles.css";
 import "./globals.css";
 
@@ -20,11 +21,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "EIP-7966 Synchronous Transactions",
-  description: "A demo of the eth_sendRawTransactionSync Method on Abstract",
+  title: APP_METADATA.title,
+  description: APP_METADATA.description,
   openGraph: {
-    title: "EIP-7966 Synchronous Transactions",
-    description: "A demo of the eth_sendRawTransactionSync Method on Abstract",
+    title: APP_METADATA.title,
+    description: APP_METADATA.description,
   },
 };
 

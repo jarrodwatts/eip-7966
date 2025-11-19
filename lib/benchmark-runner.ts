@@ -1,29 +1,44 @@
 import { zeroAddress } from "viem";
-import { Account } from "viem/accounts";
 import { abstractTestnet } from "viem/chains";
 import { paymasterConfig } from "@/config/paymaster-config";
 import { BenchmarkResult } from "@/types/benchmark";
 import { RPCCallLog } from "@/lib/instrumented-transport";
+import { TransactionClientsWithAccount, TransactionParams } from "@/types/client-types";
 
-interface TransactionClients {
-  walletClient: any; // Extended with eip712WalletActions
-  publicClient: any; // Extended with publicActionsL2
-}
-
+/**
+ * Configuration for pre-fetching transaction parameters
+ */
 export interface PrefetchOptions {
+  /** Whether to pre-fetch the nonce */
   nonce: boolean;
+  /** Whether to pre-fetch gas parameters (maxFeePerGas, maxPriorityFeePerGas, gas) */
   gasParams: boolean;
+  /** Whether to pre-fetch the chain ID */
   chainId: boolean;
 }
 
+/**
+ * Pre-fetched gas parameters for transactions
+ */
 export interface PrefetchedGas {
   maxFeePerGas: bigint;
   maxPriorityFeePerGas: bigint;
   gas: bigint;
 }
 
+/**
+ * Runs an async transaction benchmark using the traditional approach:
+ * sendTransaction followed by waitForTransactionReceipt
+ * 
+ * @param clients - Wallet and public clients with account
+ * @param nonce - Starting nonce for the transaction
+ * @param rpcCalls - Array to collect RPC call logs
+ * @param prefetchOptions - Configuration for which parameters to pre-fetch
+ * @param prefetchedGas - Pre-fetched gas parameters if available
+ * @returns Benchmark result with timing and RPC call data
+ */
 export async function runAsyncTransaction(
-  clients: TransactionClients & { account: Account },
+  clients: TransactionClientsWithAccount,
   nonce: number,
   rpcCalls: RPCCallLog[],
   prefetchOptions: PrefetchOptions,
@@ -60,7 +75,7 @@ export async function runAsyncTransaction(
     if (prefetchOptions.nonce && prefetchOptions.gasParams && prefetchOptions.chainId && prefetchedGas) {
       const requestStartTime = Date.now();
       // Add account and chain directly since we're skipping prepare
-      const requestToSign: any = {
+      const requestToSign = {
         ...txParams,
         from: clients.account.address,
         chainId: abstractTestnet.id,
@@ -119,8 +134,19 @@ export async function runAsyncTransaction(
   }
 }
 
+/**
+ * Runs a synchronous transaction benchmark using EIP-7966:
+ * sendRawTransactionSync which waits for transaction inclusion before returning
+ * 
+ * @param clients - Wallet and public clients with account
+ * @param nonce - Starting nonce for the transaction
+ * @param rpcCalls - Array to collect RPC call logs
+ * @param prefetchOptions - Configuration for which parameters to pre-fetch
+ * @param prefetchedGas - Pre-fetched gas parameters if available
+ * @returns Benchmark result with timing and RPC call data
+ */
 export async function runSyncTransaction(
-  clients: TransactionClients & { account: Account },
+  clients: TransactionClientsWithAccount,
   nonce: number,
   rpcCalls: RPCCallLog[],
   prefetchOptions: PrefetchOptions,
@@ -131,7 +157,7 @@ export async function runSyncTransaction(
   
   try {
     const paramsStartTime = Date.now();
-    const txParams: any = {
+    const txParams: TransactionParams = {
       to: zeroAddress,
       value: BigInt(0),
       ...paymasterConfig,

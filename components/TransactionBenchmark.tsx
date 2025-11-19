@@ -1,22 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { generatePrivateKey, privateKeyToAccount } from "viem/accounts";
 import { RPCCallLog } from "@/lib/instrumented-transport";
 import { createBenchmarkClients } from "@/lib/benchmark-clients";
 import { runAsyncTransaction, runSyncTransaction, PrefetchOptions } from "@/lib/benchmark-runner";
 import { BenchmarkResult } from "@/types/benchmark";
+import { PartialResult } from "@/types/partial-result";
 import { ResultCard } from "./ResultCard";
 import { ShimmerButton } from "./ui/shimmer-button";
 import { PrefetchControlPanel } from "./PrefetchControlPanel";
-
-// Partial result that updates in real-time
-interface PartialResult {
-  type: "async" | "sync";
-  startTime: number;
-  rpcCalls: RPCCallLog[];
-  isComplete: boolean;
-}
+import { APP_CONFIG } from "@/constants/app-config";
 
 export function TransactionBenchmark() {
   const [isRunning, setIsRunning] = useState(false);
@@ -181,11 +175,11 @@ export function TransactionBenchmark() {
 
     asyncTimerRef.current = setInterval(() => {
       setAsyncElapsed(Date.now() - asyncStartTime);
-    }, 50);
+    }, APP_CONFIG.TIMER_UPDATE_INTERVAL);
     
     syncTimerRef.current = setInterval(() => {
       setSyncElapsed(Date.now() - syncStartTime);
-    }, 50);
+    }, APP_CONFIG.TIMER_UPDATE_INTERVAL);
 
     // Run both transactions in parallel with no dependencies
     // The timers are already running and will match the actual transaction duration

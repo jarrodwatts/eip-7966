@@ -1,12 +1,10 @@
 import { BenchmarkResult } from "@/types/benchmark";
+import { truncateHash } from "@/lib/format-utils";
+import { APP_CONFIG } from "@/constants/app-config";
 
 interface ComparisonCardProps {
   asyncResult: BenchmarkResult;
   syncResult: BenchmarkResult;
-}
-
-function truncateHash(hash: string): string {
-  return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
 }
 
 export function ComparisonCard({ asyncResult, syncResult }: ComparisonCardProps) {
@@ -65,7 +63,7 @@ export function ComparisonCard({ asyncResult, syncResult }: ComparisonCardProps)
             <div className="flex items-center gap-2">
               <span className="text-xs text-zinc-500">Async Transaction</span>
               <a
-                href={`https://sepolia.abscan.org/tx/${asyncResult.txHash}`}
+                href={`${APP_CONFIG.BLOCK_EXPLORER_URL}/tx/${asyncResult.txHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs text-white hover:text-emerald-300 font-mono transition-colors group"
@@ -90,7 +88,7 @@ export function ComparisonCard({ asyncResult, syncResult }: ComparisonCardProps)
             <div className="flex items-center gap-2">
               <span className="text-xs text-zinc-500">Sync Transaction</span>
               <a
-                href={`https://sepolia.abscan.org/tx/${syncResult.txHash}`}
+                href={`${APP_CONFIG.BLOCK_EXPLORER_URL}/tx/${syncResult.txHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-xs text-white hover:text-emerald-300 font-mono transition-colors group"

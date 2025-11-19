@@ -1,13 +1,10 @@
 import { BenchmarkResult } from "@/types/benchmark";
+import { PartialResult } from "@/types/partial-result";
 import { RPCCallLog } from "@/lib/instrumented-transport";
 import { useAnimatedCounter } from "@/hooks/use-animated-counter";
-
-interface PartialResult {
-  type: "async" | "sync";
-  startTime: number;
-  rpcCalls: RPCCallLog[];
-  isComplete: boolean;
-}
+import { truncateHash } from "@/lib/format-utils";
+import { MOCK_ASYNC_CALLS, MOCK_SYNC_CALLS } from "@/constants/mock-data";
+import { APP_CONFIG } from "@/constants/app-config";
 
 interface ResultCardProps {
   result: BenchmarkResult | null;
@@ -18,13 +15,19 @@ interface ResultCardProps {
   elapsedTime?: number;
 }
 
-function truncateHash(hash: string): string {
-  return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
-}
-
-// Component for individual RPC call with animated duration
-function RPCCallRow({ call, showMockData, isLiveRunning }: { call: RPCCallLog; showMockData: boolean; isLiveRunning: boolean }) {
-  const animatedDuration = useAnimatedCounter(call.duration, 100);
+/**
+ * Component for displaying an individual RPC call with animated duration
+ */
+function RPCCallRow({ 
+  call, 
+  showMockData, 
+  isLiveRunning 
+}: { 
+  call: RPCCallLog; 
+  showMockData: boolean; 
+  isLiveRunning: boolean;
+}) {
+  const animatedDuration = useAnimatedCounter(call.duration, APP_CONFIG.COUNTER_ANIMATION_DURATION);
   const isSyncMethod = call.method === "eth_sendRawTransactionSync";
   const isPending = call.isPending === true;
   
@@ -62,32 +65,14 @@ function RPCCallRow({ call, showMockData, isLiveRunning }: { call: RPCCallLog; s
   );
 }
 
-// Sample data for initial load
-const MOCK_ASYNC_CALLS: RPCCallLog[] = [
-  { method: "eth_getTransactionCount", startTime: 0, endTime: 473, duration: 473 },
-  { method: "eth_getBlockByNumber", startTime: 0, endTime: 239, duration: 239 },
-  { method: "eth_maxPriorityFeePerGas", startTime: 0, endTime: 229, duration: 229 },
-  { method: "eth_estimateGas", startTime: 0, endTime: 340, duration: 340 },
-  { method: "eth_chainId", startTime: 0, endTime: 228, duration: 228 },
-  { method: "eth_chainId", startTime: 0, endTime: 233, duration: 233 },
-  { method: "eth_sendRawTransaction", startTime: 0, endTime: 265, duration: 265 },
-  { method: "eth_getTransactionReceipt", startTime: 0, endTime: 236, duration: 236 },
-  { method: "eth_blockNumber", startTime: 0, endTime: 231, duration: 231 },
-  { method: "eth_getTransactionByHash", startTime: 0, endTime: 233, duration: 233 },
-  { method: "eth_getTransactionReceipt", startTime: 0, endTime: 233, duration: 233 },
-];
-
-const MOCK_SYNC_CALLS: RPCCallLog[] = [
-  { method: "eth_getTransactionCount", startTime: 0, endTime: 476, duration: 476 },
-  { method: "eth_chainId", startTime: 0, endTime: 233, duration: 233 },
-  { method: "eth_getBlockByNumber", startTime: 0, endTime: 231, duration: 231 },
-  { method: "eth_maxPriorityFeePerGas", startTime: 0, endTime: 231, duration: 231 },
-  { method: "eth_estimateGas", startTime: 0, endTime: 341, duration: 341 },
-  { method: "eth_chainId", startTime: 0, endTime: 229, duration: 229 },
-  { method: "eth_sendRawTransactionSync", startTime: 0, endTime: 470, duration: 470 },
-];
-
-export function ResultCard({ result, isRunning, isPreparing = false, type, partialResult, elapsedTime = 0 }: ResultCardProps) {
+export function ResultCard({ 
+  result, 
+  isRunning, 
+  isPreparing = false, 
+  type, 
+  partialResult, 
+  elapsedTime = 0 
+}: ResultCardProps) {
   const isAsync = type === "async";
   const title = isAsync ? "Async Transaction" : "Sync Transaction (EIP-7966)";
   const subtitle = isAsync 
@@ -102,8 +87,8 @@ export function ResultCard({ result, isRunning, isPreparing = false, type, parti
   const displayElapsedTime = isLiveRunning ? elapsedTime : result?.duration;
   
   // Use animated counter for the total duration and RPC time
-  const animatedDuration = useAnimatedCounter(displayElapsedTime || 0, 100);
-  const animatedTotalRPCTime = useAnimatedCounter(totalDuration, 100);
+  const animatedDuration = useAnimatedCounter(displayElapsedTime || 0, APP_CONFIG.COUNTER_ANIMATION_DURATION);
+  const animatedTotalRPCTime = useAnimatedCounter(totalDuration, APP_CONFIG.COUNTER_ANIMATION_DURATION);
 
   return (
     <div className={`flex flex-col min-h-[600px] p-6 bg-zinc-900/50 border border-zinc-800 rounded-lg transition-all duration-500 ${
@@ -191,7 +176,7 @@ export function ResultCard({ result, isRunning, isPreparing = false, type, parti
                 <div className="pt-3 border-t border-zinc-700 flex items-center gap-2">
                   <span className="text-xs text-zinc-400">Transaction Hash</span>
                   <a
-                    href={`https://sepolia.abscan.org/tx/${result.txHash}`}
+                    href={`${APP_CONFIG.BLOCK_EXPLORER_URL}/tx/${result.txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1 text-xs text-white hover:text-emerald-300 font-mono transition-colors group"
