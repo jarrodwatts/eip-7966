@@ -26,7 +26,7 @@ export function PrefetchControlPanel({
   };
 
   return (
-    <div className="w-full mb-6 p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+    <div className="w-full p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg">
       <div className="flex items-center justify-between gap-8">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold text-white">Pre-fetch Options</h3>
@@ -42,7 +42,7 @@ export function PrefetchControlPanel({
               </p>
             </div>
           </div>
-          <span className="text-xs text-zinc-500">Toggle to see latency impact</span>
+          <span className="hidden sm:inline text-xs text-zinc-500">Toggle to see latency impact</span>
         </div>
         
         <div className="flex items-center gap-6">

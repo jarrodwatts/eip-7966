@@ -7,6 +7,7 @@ import { createInstrumentedTransport, RPCCallLog } from "@/lib/instrumented-tran
 export function createBenchmarkClients(
   account: Account,
   rpcCallLogger: (log: RPCCallLog) => void,
+  rpcStartLogger?: (log: Omit<RPCCallLog, 'endTime' | 'duration'>) => void,
   prefetchChainId: boolean = false
 ) {
   // Get the RPC URL from the abstractTestnet chain
@@ -19,14 +20,14 @@ export function createBenchmarkClients(
   const walletClient = createWalletClient({
     account,
     chain: abstractTestnet,
-    transport: createInstrumentedTransport(rpcUrl, rpcCallLogger, prefetchChainId, abstractTestnet.id),
+    transport: createInstrumentedTransport(rpcUrl, rpcCallLogger, rpcStartLogger, prefetchChainId, abstractTestnet.id),
   }).extend(eip712WalletActions());
 
   console.log("✅ WalletClient created, chain:", walletClient.chain?.id ?? "undefined");
 
   const publicClient = createPublicClient({
     chain: abstractTestnet,
-    transport: createInstrumentedTransport(rpcUrl, rpcCallLogger),
+    transport: createInstrumentedTransport(rpcUrl, rpcCallLogger, rpcStartLogger),
   }).extend(publicActionsL2());
 
   return { walletClient, publicClient };

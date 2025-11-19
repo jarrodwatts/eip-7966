@@ -16,11 +16,18 @@ export interface PrefetchOptions {
   chainId: boolean;
 }
 
+export interface PrefetchedGas {
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+  gas: bigint;
+}
+
 export async function runAsyncTransaction(
   clients: TransactionClients & { account: Account },
   nonce: number,
   rpcCalls: RPCCallLog[],
-  prefetchOptions: PrefetchOptions
+  prefetchOptions: PrefetchOptions,
+  prefetchedGas: PrefetchedGas | null = null
 ): Promise<BenchmarkResult> {
   const startTime = Date.now();
   
@@ -36,11 +43,31 @@ export async function runAsyncTransaction(
       txParams.nonce = nonce;
     }
 
-    // Note: chainId is controlled at client creation level
-    // When prefetchChainId is true, chain is set on wallet client
-    // When false, viem will call eth_chainId during transaction preparation
+    // Add pre-fetched gas parameters if enabled
+    if (prefetchOptions.gasParams && prefetchedGas) {
+      console.log("🔧 Async: Using pre-fetched gas params:", prefetchedGas);
+      txParams.maxFeePerGas = prefetchedGas.maxFeePerGas;
+      txParams.maxPriorityFeePerGas = prefetchedGas.maxPriorityFeePerGas;
+      txParams.gas = prefetchedGas.gas;
+    }
 
-    const hash = await clients.walletClient.sendTransaction(txParams);
+    let hash: string;
+    
+    // When all params are prefetched, skip prepareTransactionRequest to avoid re-estimation
+    if (prefetchOptions.nonce && prefetchOptions.gasParams && prefetchOptions.chainId && prefetchedGas) {
+      console.log("🔧 Async: Skipping prepareTransactionRequest, signing directly");
+      // Add account and chain directly since we're skipping prepare
+      const requestToSign: any = {
+        ...txParams,
+        from: clients.account.address,
+        chainId: abstractTestnet.id,
+      };
+      const serializedTransaction = await clients.walletClient.signTransaction(requestToSign);
+      hash = await clients.publicClient.sendRawTransaction({ serializedTransaction });
+    } else {
+      // Use normal flow when some params aren't prefetched
+      hash = await clients.walletClient.sendTransaction(txParams);
+    }
 
     await clients.publicClient.waitForTransactionReceipt({ hash });
     const endTime = Date.now();
@@ -73,7 +100,8 @@ export async function runSyncTransaction(
   clients: TransactionClients & { account: Account },
   nonce: number,
   rpcCalls: RPCCallLog[],
-  prefetchOptions: PrefetchOptions
+  prefetchOptions: PrefetchOptions,
+  prefetchedGas: PrefetchedGas | null = null
 ): Promise<BenchmarkResult> {
   const startTime = Date.now();
   
@@ -89,9 +117,14 @@ export async function runSyncTransaction(
       txParams.nonce = nonce;
     }
 
-    // Note: chainId is controlled at client creation level
-    // When prefetchChainId is true, chain is set on wallet client
-    // When false, viem will call eth_chainId during transaction preparation
+    // Add pre-fetched gas parameters if enabled
+    if (prefetchOptions.gasParams && prefetchedGas) {
+      txParams.maxFeePerGas = prefetchedGas.maxFeePerGas;
+      txParams.maxPriorityFeePerGas = prefetchedGas.maxPriorityFeePerGas;
+      txParams.gas = prefetchedGas.gas;
+    }
+
+    // Note: chainId is controlled at transport level (intercepted when prefetch is enabled)
 
     const request = await clients.walletClient.prepareTransactionRequest(txParams);
 
@@ -126,4 +159,3 @@ export async function runSyncTransaction(
     };
   }
 }
-

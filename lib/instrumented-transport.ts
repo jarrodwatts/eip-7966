@@ -5,17 +5,19 @@ export interface RPCCallLog {
   startTime: number;
   endTime: number;
   duration: number;
+  isPending?: boolean;
 }
 
 export function createInstrumentedTransport(
   url: string | undefined,
   onRPCCall: (log: RPCCallLog) => void,
+  onRPCStart?: (log: Omit<RPCCallLog, 'endTime' | 'duration'>) => void,
   prefetchChainId: boolean = false,
   cachedChainId?: number
 ): Transport {
   const baseTransport = http(url);
 
-  return (params) => {
+  return ((params) => {
     const transport = baseTransport(params);
 
     return {
@@ -28,7 +30,15 @@ export function createInstrumentedTransport(
         if (request.method === "eth_chainId" && prefetchChainId && cachedChainId) {
           console.log("✨ Returning cached chainId (no RPC call):", cachedChainId);
           // Return in hex format as viem expects
-          return `0x${cachedChainId.toString(16)}`;
+          return `0x${cachedChainId.toString(16)}` as any;
+        }
+        
+        // Notify that RPC call is starting
+        if (onRPCStart) {
+          onRPCStart({
+            method: request.method,
+            startTime,
+          });
         }
         
         try {
@@ -57,6 +67,6 @@ export function createInstrumentedTransport(
         }
       },
     };
-  };
+  }) as Transport;
 }
 

@@ -76,31 +76,100 @@ export function TransactionBenchmark() {
       setSyncElapsed(Date.now() - syncStartTime);
     }, 50);
 
+    // Pre-fetch gas parameters if enabled (before creating transaction clients)
+    // Use a temporary client that doesn't log to transaction RPC arrays
+    let prefetchedGas = null;
+    if (prefetchOptions.gasParams) {
+      console.log("⛽ Pre-fetching gas parameters...");
+      
+      // Create a temporary client just for pre-fetching (doesn't log to RPC arrays)
+      const prefetchClients = createBenchmarkClients(
+        asyncAccount, 
+        () => {}, // Empty logger - don't track these calls
+        undefined,
+        prefetchOptions.chainId
+      );
+      
+      const [block, maxPriorityFee, gasEstimate] = await Promise.all([
+        prefetchClients.publicClient.getBlock({ blockTag: 'latest' }),
+        prefetchClients.publicClient.request({ method: 'eth_maxPriorityFeePerGas' }),
+        prefetchClients.publicClient.estimateGas({
+          account: asyncAccount.address,
+          to: "0x0000000000000000000000000000000000000000",
+          value: BigInt(0),
+        }),
+      ]);
+      
+      prefetchedGas = {
+        maxFeePerGas: block.baseFeePerGas ? block.baseFeePerGas + BigInt(maxPriorityFee) : BigInt(maxPriorityFee),
+        maxPriorityFeePerGas: BigInt(maxPriorityFee),
+        gas: gasEstimate,
+      };
+      
+      console.log("✅ Gas parameters pre-fetched:", prefetchedGas);
+    }
+
     // Create clients for async transaction with its own account
-    const asyncClients = createBenchmarkClients(asyncAccount, (log) => {
-      asyncRPCCalls.push(log);
-      setAsyncPartial(prev => prev ? { ...prev, rpcCalls: [...asyncRPCCalls] } : null);
-    }, prefetchOptions.chainId);
+    const asyncClients = createBenchmarkClients(
+      asyncAccount, 
+      (log) => {
+        // When a call completes, find and update the pending entry or add if not found
+        const pendingIndex = asyncRPCCalls.findIndex(
+          call => call.method === log.method && call.isPending && call.startTime === log.startTime
+        );
+        if (pendingIndex >= 0) {
+          asyncRPCCalls[pendingIndex] = { ...log, isPending: false };
+        } else {
+          asyncRPCCalls.push({ ...log, isPending: false });
+        }
+        setAsyncPartial(prev => prev ? { ...prev, rpcCalls: [...asyncRPCCalls] } : null);
+      },
+      (log) => {
+        // When a call starts, add it as pending
+        asyncRPCCalls.push({ ...log, endTime: 0, duration: 0, isPending: true });
+        setAsyncPartial(prev => prev ? { ...prev, rpcCalls: [...asyncRPCCalls] } : null);
+      },
+      prefetchOptions.chainId
+    );
     
     // Create clients for sync transaction with its own account
-    const syncClients = createBenchmarkClients(syncAccount, (log) => {
-      syncRPCCalls.push(log);
+    const syncClients = createBenchmarkClients(
+      syncAccount, 
+      (log) => {
+        // When a call completes, find and update the pending entry or add if not found
+        const pendingIndex = syncRPCCalls.findIndex(
+          call => call.method === log.method && call.isPending && call.startTime === log.startTime
+        );
+        if (pendingIndex >= 0) {
+          syncRPCCalls[pendingIndex] = { ...log, isPending: false };
+        } else {
+          syncRPCCalls.push({ ...log, isPending: false });
+        }
+        setSyncPartial(prev => prev ? { ...prev, rpcCalls: [...syncRPCCalls] } : null);
+      },
+      (log) => {
+        // When a call starts, add it as pending
+        syncRPCCalls.push({ ...log, endTime: 0, duration: 0, isPending: true });
       setSyncPartial(prev => prev ? { ...prev, rpcCalls: [...syncRPCCalls] } : null);
-    }, prefetchOptions.chainId);
+      },
+      prefetchOptions.chainId
+    );
 
-    // Get starting nonces for each account independently (only if pre-fetch is enabled)
+    // Get starting nonces for each account (only if pre-fetch is disabled)
+    // When prefetch is enabled, we use nonce 0 since these are fresh accounts
     let asyncNonce = 0;
     let syncNonce = 0;
     
-    if (prefetchOptions.nonce) {
+    if (!prefetchOptions.nonce) {
+      // Fetch nonces from the network
       [asyncNonce, syncNonce] = await Promise.all([
-      asyncClients.publicClient.getTransactionCount({
-        address: asyncAccount.address,
-      }),
-      syncClients.publicClient.getTransactionCount({
-        address: syncAccount.address,
-      }),
-    ]);
+        asyncClients.publicClient.getTransactionCount({
+          address: asyncAccount.address,
+        }),
+        syncClients.publicClient.getTransactionCount({
+          address: syncAccount.address,
+        }),
+      ]);
     }
 
     // Run both transactions in parallel with no dependencies
@@ -109,7 +178,8 @@ export function TransactionBenchmark() {
       { ...asyncClients, account: asyncAccount },
       asyncNonce,
       asyncRPCCalls,
-      prefetchOptions
+      prefetchOptions,
+      prefetchedGas
     ).then(res => {
       const duration = Date.now() - asyncStartTime;
       const finalResult = { ...res, duration };
@@ -125,7 +195,8 @@ export function TransactionBenchmark() {
       { ...syncClients, account: syncAccount },
       syncNonce,
       syncRPCCalls,
-      prefetchOptions
+      prefetchOptions,
+      prefetchedGas
     ).then(res => {
       const duration = Date.now() - syncStartTime;
       const finalResult = { ...res, duration };

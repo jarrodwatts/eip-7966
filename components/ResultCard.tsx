@@ -25,32 +25,37 @@ function truncateHash(hash: string): string {
 function RPCCallRow({ call, showMockData, isLiveRunning }: { call: RPCCallLog; showMockData: boolean; isLiveRunning: boolean }) {
   const animatedDuration = useAnimatedCounter(call.duration, 100);
   const isSyncMethod = call.method === "eth_sendRawTransactionSync";
+  const isPending = call.isPending === true;
   
   return (
     <div
-      className={`flex items-center justify-between text-xs rounded px-2 py-1 transition-colors ${
-        isSyncMethod 
-          ? 'bg-emerald-500/10 border border-emerald-500/20' 
-          : showMockData 
-            ? 'bg-zinc-800/30' 
-            : isLiveRunning
-              ? 'bg-yellow-500/5'
-              : 'bg-zinc-800/50'
+      className={`flex items-center justify-between text-xs rounded px-2 py-1 transition-all duration-300 min-h-[24px] border ${
+        showMockData 
+          ? 'bg-zinc-800/30 border-transparent' 
+          : isPending
+            ? 'bg-yellow-500/10 border-yellow-500/30'
+            : isSyncMethod
+              ? 'bg-emerald-500/10 border-emerald-500/20'
+              : isLiveRunning
+                ? 'bg-emerald-500/10 border-emerald-500/30'
+                : 'bg-zinc-800/50 border-transparent'
       }`}
     >
-      <span className={`font-mono ${showMockData ? 'text-zinc-400' : isLiveRunning ? 'text-zinc-300' : 'text-zinc-300'}`}>
+      <span className={`font-mono transition-colors duration-300 ${showMockData ? 'text-zinc-400' : isPending ? 'text-yellow-300' : isLiveRunning ? 'text-zinc-300' : 'text-zinc-300'}`}>
         {call.method}
       </span>
-      <span className={`font-mono ${
-        isSyncMethod 
-          ? 'text-emerald-300 font-semibold' 
-          : showMockData 
-            ? 'text-zinc-500' 
-            : isLiveRunning
-              ? 'text-yellow-400'
-              : 'text-emerald-400'
+      <span className={`font-mono transition-colors duration-300 text-right min-w-[50px] inline-block ${
+        showMockData 
+          ? 'text-zinc-500' 
+          : isPending
+            ? 'text-yellow-400 animate-pulse'
+            : isSyncMethod
+              ? 'text-emerald-300 font-semibold'
+              : isLiveRunning
+                ? 'text-emerald-400'
+                : 'text-emerald-400'
       }`}>
-        {showMockData ? '--' : animatedDuration}ms
+        {showMockData ? '--' : isPending ? '...' : `${animatedDuration}ms`}
       </span>
     </div>
   );
